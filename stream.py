@@ -68,11 +68,57 @@ def reply(conn, ctype, body, extra=b""):
                  extra + b"Connection: close\r\n\r\n" + body)
 
 
+def handle_audio(conn, length, first=b""):
+    if length <= 0 or length > 10 * 1024 * 1024:
+        conn.sendall(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
+        return
+    player = subprocess.Popen(
+        ["aplay", "-q", "-f", "S16_LE", "-r", "44100", "-c", "1"],
+        stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    STDIN = player.stdin
+    assert STDIN is not None
+    remaining = length
+    chunk = first
+    try:
+        while remaining > 0:
+            if not chunk:
+                chunk = conn.recv(min(65536, remaining))
+                if not chunk:
+                    break
+            n = min(len(chunk), remaining)
+            STDIN.write(chunk[:n])
+            remaining -= n
+            chunk = chunk[n:]
+        STDIN.close()
+        player.wait(timeout=10)
+        reply(conn, b"application/json", b'{"ok":true,"service":"zflip3-speaker"}')
+    except Exception:
+        try:
+            player.kill()
+        except Exception:
+            pass
+        conn.sendall(b"HTTP/1.1 500 Error\r\nContent-Length: 0\r\n\r\n")
+
+
 def handle(conn):
     try:
         req = conn.recv(4096)
         parts = req.split(b" ")
+        method = parts[0] if parts else b"GET"
         path = parts[1] if len(parts) > 1 else b"/"
+        length = 0
+        for line in req.split(b"\r\n"):
+            if line.lower().startswith(b"content-length:"):
+                try:
+                    length = int(line.split(b":", 1)[1].strip())
+                except ValueError:
+                    length = 0
+        hend = req.find(b"\r\n\r\n")
+        first = req[hend + 4:] if hend >= 0 else b""
+        if method == b"POST" and path == b"/audio":
+            handle_audio(conn, length, first)
+            return
         if path == b"/health":
             reply(conn, b"application/json", b'{"ok":true,"service":"zflip3-webcam"}')
         elif path == b"/stream":
