@@ -27,13 +27,17 @@ case "${1:-}" in
 			exit 0
 		fi
 		for p in $(pid); do kill "$p" 2>/dev/null || true; done
-		[ -n "$(pid)" ] && sleep 1
-		"$SETUP" "$MODE" >/dev/null
-		python3 "$STREAM" >"$LOG" 2>&1 &
+		# the capture pipeline is a child shell + v4l2-ctl/ffmpeg/unpack10: they
+		# keep /dev/video4 open, so setup-camera.sh would fail with EBUSY
+		killall -q v4l2-ctl ffmpeg unpack10 2>/dev/null || true
 		sleep 2
+		"$SETUP" "$MODE" >/dev/null 2>&1 || true
+		python3 "$STREAM" >"$LOG" 2>&1 &
+		sleep 3
 		printf 'started mode=%s\n' "$MODE" ;;
 	stop)
 		for p in $(ps 2>/dev/null | awk '/[s]tream.py/{print $1}'); do kill "$p" 2>/dev/null || true; done
+		killall -q v4l2-ctl ffmpeg unpack10 2>/dev/null || true
 		printf 'stopped\n' ;;
 	audio-on)
 		/usr/bin/setup-audio.sh
