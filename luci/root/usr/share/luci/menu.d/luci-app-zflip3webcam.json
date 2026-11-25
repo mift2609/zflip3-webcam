@@ -1,0 +1,13 @@
+{
+	"admin/services/zflip3webcam": {
+		"title": "Z Flip3 Webcam",
+		"order": 95,
+		"action": {
+			"type": "view",
+			"path": "zflip3webcam/index"
+		},
+		"depends": {
+			"acl": [ "luci-app-zflip3webcam" ]
+		}
+	}
+}

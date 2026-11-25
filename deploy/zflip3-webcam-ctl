@@ -1,0 +1,36 @@
+#!/bin/sh
+# zflip3-webcam-ctl — fixed subcommands for LuCI (no arbitrary shell).
+set -eu
+STREAM=/usr/bin/stream.py
+SETUP=/usr/bin/setup-camera.sh
+LOG=/tmp/webcam.log
+
+pid() { ps 2>/dev/null | awk '/[s]tream.py/{print $1; exit}'; }
+
+case "${1:-}" in
+	status)
+		p=$(pid)
+		printf 'running=%s\n' "$([ -n "$p" ] && echo 1 || echo 0)"
+		printf 'pid=%s\n' "${p:-0}"
+		printf 'amp=%s\n' "$(amixer -c 0 sget 'Speaker Amp Gain ZC' 2>/dev/null | grep -o 'Playback \[[a-z]*\]' | head -1 | tr -d '[]' | awk '{print $2}' || echo unknown)"
+		printf 'url_usb=http://192.168.44.1:8082/\n'
+		printf 'url_ap=http://192.168.45.1:8082/\n'
+		;;
+	start)
+		if [ -z "$(pid)" ]; then
+			"$SETUP" front >/dev/null
+			python3 "$STREAM" >"$LOG" 2>&1 &
+		fi
+		printf 'started\n' ;;
+	stop)
+		for p in $(ps 2>/dev/null | awk '/[s]tream.py/{print $1}'); do kill "$p" 2>/dev/null || true; done
+		printf 'stopped\n' ;;
+	audio-on)
+		/usr/bin/setup-audio.sh
+		printf 'audio on\n' ;;
+	audio-off)
+		amixer -c 0 sset 'Speaker Amp Gain ZC' off >/dev/null
+		printf 'audio off\n' ;;
+	*)
+		echo "unknown: ${1:-}" >&2; exit 1 ;;
+esac

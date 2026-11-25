@@ -1,0 +1,15 @@
+{
+	"luci-app-zflip3webcam": {
+		"description": "Z Flip3 webcam & speaker streamer",
+		"read": {
+			"file": {
+				"/usr/bin/zflip3-webcam-ctl": [ "exec" ]
+			}
+		},
+		"write": {
+			"file": {
+				"/usr/bin/zflip3-webcam-ctl": [ "exec" ]
+			}
+		}
+	}
+}
