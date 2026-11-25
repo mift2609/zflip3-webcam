@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """MJPEG webcam streamer for Z Flip3 OpenWrt (socket-only, no http.server).
 
-Capture: v4l2-ctl -> unpack10 (10-bit packed to gray8) -> ffmpeg -> MJPEG.
+Capture: v4l2-ctl -> unpack10 (10-bit Bayer -> RGB24 demosaic) -> ffmpeg -> MJPEG.
 Serve: http://<device>:8082/stream (multipart/x-mixed-replace).
+Mode comes from /etc/zflip3-cam.mode (written by setup-camera.sh), default rear.
 """
 import socket
 import subprocess
@@ -10,16 +11,40 @@ import sys
 import threading
 import time
 
-W, H = 1824, 1368
 PORT = 8082
-VIDEO = "/dev/video1"
 UNPACK = "/usr/bin/unpack10"
+SETUP = "/usr/bin/setup-camera.sh"
+MODE_FILE = "/etc/zflip3-cam.mode"
+FRAME_DUMP = "/tmp/flip3-cam.rgb"
+
+MODES = {
+    "rear":      dict(dev="/dev/video4", w=2104, h=1560, bpl=2640, pix="pBAA", pat="bggr"),
+    "rear_full": dict(dev="/dev/video4", w=4208, h=3120, bpl=5264, pix="pBAA", pat="bggr"),
+    "front":     dict(dev="/dev/video1", w=1824, h=1368, bpl=2288, pix="pgAA", pat="grbg"),
+}
+
+
+def load_mode():
+    try:
+        with open(MODE_FILE) as f:
+            name = f.read().strip()
+    except OSError:
+        name = "rear"
+    return name if name in MODES else "rear"
+
+
+MODE = load_mode()
+M = MODES[MODE]
+W, H, VIDEO = M["w"], M["h"], M["dev"]
+OW, OH = int(M["w"]) // 2, int(M["h"]) // 2   # unpack10 emits half-res RGB (2x2 block debayer)
 
 CMD = (
+    "v4l2-ctl -d {v} --set-fmt-video=width={w},height={h},pixelformat={p} >/dev/null 2>&1; "
     "v4l2-ctl -d {v} --stream-mmap --stream-count=100000 --stream-to=- | "
-    "{u} 1824 1368 2288 /tmp/flip3-cam.gray | ffmpeg -hide_banner -loglevel error -f rawvideo -pix_fmt gray "
-    "-s {w}x{h} -framerate 10 -i - -c:v mjpeg -q:v 5 -f mjpeg -"
-).format(v=VIDEO, u=UNPACK, w=W, h=H)
+    "{u} {w} {h} {b} {d} {pat} | "
+    "ffmpeg -hide_banner -loglevel error -f rawvideo -pix_fmt rgb24 "
+    "-s {ow}x{oh} -framerate 10 -i - -c:v mjpeg -q:v 5 -f mjpeg -"
+)
 
 proc = None
 OUT = None
@@ -31,8 +56,12 @@ def start_pipeline():
     global proc, OUT, buf
     if proc is not None:
         proc.terminate()
+        proc.wait()
+    subprocess.call([SETUP, MODE], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cmd = CMD.format(v=VIDEO, u=UNPACK, w=W, h=H, b=M["bpl"], p=M["pix"], pat=M["pat"],
+                     d=FRAME_DUMP, ow=OW, oh=OH)
     proc = subprocess.Popen(
-        ["/bin/sh", "-c", CMD],
+        ["/bin/sh", "-c", cmd],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )

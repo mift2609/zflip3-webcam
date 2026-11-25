@@ -24,7 +24,7 @@ jobs:
 
       - name: Build unpack10
         run: |
-          "$CROSS_CC" -O2 -static -s -o unpack10 src/unpack10.c
+          "$CROSS_CC" -O2 -static -s -o unpack10 src/unpack10.c -lm
           file unpack10
           ls -l unpack10
 
