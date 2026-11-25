@@ -29,6 +29,7 @@ return view.extend({
 			host.replaceChildren(
 				E('table', { 'class': 'table' }, [
 					E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td' }, [ _('Stream') ]), E('td', { 'class': 'td' }, [ on ? _('jalan') : _('mati') ]) ]),
+					E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td' }, [ _('Kamera') ]), E('td', { 'class': 'td' }, [ s.mode || '-' ]) ]),
 					E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td' }, [ _('PID') ]), E('td', { 'class': 'td' }, [ s.pid || '-' ]) ]),
 					E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td' }, [ _('Speaker amp') ]), E('td', { 'class': 'td' }, [ s.amp || '-' ]) ]),
 					E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td' }, [ _('USB URL') ]), E('td', { 'class': 'td' }, [ s.url_usb || '-' ]) ]),
@@ -51,10 +52,24 @@ return view.extend({
 			}, [ label ]);
 		};
 
+		var cam = E('select', { 'class': 'cbi-input-select' }, [
+			E('option', { 'value': 'rear' }, [ _('Belakang utama (warna)') ]),
+			E('option', { 'value': 'rear_full' }, [ _('Belakang 13 MP (berat)') ]),
+			E('option', { 'value': 'front' }, [ _('Depan') ])
+		]);
+		var camStart = function(ev) {
+			ev.preventDefault();
+			return act([ 'start', cam.value ]);
+		};
+
 		return E('div', {}, [
 			host,
 			E('div', { 'style': 'display:flex;gap:8px;flex-wrap:wrap;margin:12px 0' }, [
-				btn(_('Start stream'), [ 'start' ]),
+				cam,
+				E('button', {
+					'class': 'btn cbi-button cbi-button-apply',
+					'click': camStart
+				}, [ _('Start stream') ]),
 				btn(_('Stop stream'), [ 'stop' ], 'cbi-button-negative'),
 				btn(_('Speaker on'), [ 'audio-on' ]),
 				btn(_('Speaker off'), [ 'audio-off' ], 'cbi-button-negative'),
