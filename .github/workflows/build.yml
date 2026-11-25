@@ -1,0 +1,41 @@
+name: build-webcam-helper
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install aarch64 musl cross compiler
+        run: |
+          set -eu
+          mkdir -p "$HOME/toolchains"
+          curl -fsSL https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--musl--stable-2024.05-1.tar.xz | tar -xJ -C "$HOME/toolchains"
+          echo "CROSS_CC=$HOME/toolchains/aarch64--musl--stable-2024.05-1/bin/aarch64-buildroot-linux-musl-gcc" >> "$GITHUB_ENV"
+          "$HOME/toolchains/aarch64--musl--stable-2024.05-1/bin/aarch64-buildroot-linux-musl-gcc" --version | head -1
+
+      - name: Build unpack10
+        run: |
+          "$CROSS_CC" -O2 -static -s -o unpack10 src/unpack10.c
+          file unpack10
+          ls -l unpack10
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zflip3-webcam-helper
+          path: |
+            unpack10
+            stream.py
+            setup-camera.sh
+            README.md
+          retention-days: 30
+          if-no-files-found: error
