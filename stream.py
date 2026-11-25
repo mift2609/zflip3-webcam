@@ -17,7 +17,7 @@ UNPACK = "/usr/bin/unpack10"
 
 CMD = (
     "v4l2-ctl -d {v} --stream-mmap --stream-count=100000 --stream-to=- | "
-    "{u} 1824 1368 2288 | ffmpeg -hide_banner -loglevel error -f rawvideo -pix_fmt gray "
+    "{u} 1824 1368 2288 /tmp/flip3-cam.gray | ffmpeg -hide_banner -loglevel error -f rawvideo -pix_fmt gray "
     "-s {w}x{h} -framerate 10 -i - -c:v mjpeg -q:v 5 -f mjpeg -"
 ).format(v=VIDEO, u=UNPACK, w=W, h=H)
 

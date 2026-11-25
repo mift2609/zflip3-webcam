@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
     unsigned char *in = malloc(row_in);
     unsigned char *out = malloc(row_out);
     unsigned char pad[64];
+    FILE *dump = argc > 4 ? fopen(argv[4], "wb") : NULL;
     if (!in || !out) return 3;
 
     static unsigned char ibuf[65536], obuf[65536];
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
             out[x + 3] = (unsigned char)(p3 >> 2);
         }
         if (fwrite(out, 1, row_out, stdout) != row_out) goto done;
+        if (dump) fwrite(out, 1, row_out, dump);
         size_t skip = (size_t)bpl - row_in;
         while (skip > 0) {
             size_t n = skip > sizeof(pad) ? sizeof(pad) : skip;
@@ -47,6 +49,7 @@ int main(int argc, char **argv) {
     }
 done:
     fflush(stdout);
+    if (dump) fclose(dump);
     free(in);
     free(out);
     return 0;
